@@ -5,7 +5,7 @@ struct Point {
     double x, y;
     Point(double x = 0, double y = 0) {};
 };
-
+// мяу мяу
 class Ellipce {
 private:
     double x0, y0, a, b, c;
