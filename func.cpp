@@ -1,6 +1,6 @@
 #include <iostream>
 #include <cmath>
-#include <iomanip>
+#include <iomanip> //а где мы используем эту библиотеку?
 
 struct Point {
     double x, y;
@@ -35,48 +35,42 @@ public:
     Point fromShtrihToNormal(Point& a) {
         return Point(a.x + x0, a.y + y0);
     }
-    Point pointInters(Point& m, double& angle) { //см. комментарий на строке 75
-        double dx = std::cos(angle);
-        double dy = std::sin(angle);
-        double A = dx * dx / (a * a) + dy * dy / (b * b);
-        double B = 2 * ((m.x * dx / (a * a)) + m.y * dy / (b * b));
+    Point pointInters(Point& m, double& angle) { 
+        double k_x = std::cos(angle);
+        double k_y = std::sin(angle);
+        double A = k_x * k_x / (a * a) + k_y * k_y / (b * b);
+        double B = 2 * ((m.x * k_x / (a * a)) + m.y * k_y / (b * b));
         double C = m.x * m.x / (a * a) + m.y * m.y / (b * b) - 1;
         double t1, t2, t = 0;
-        double max = std::max(B * B, fabs(4 * A * C)); //зачем модуль для B^2, квадрат же всегда положительный
+        double max = std::max(B * B, fabs(4 * A * C)); 
         if (max < epsilon) { 
             t = 0;
-            return m;
         }
-        double norm_D = (B * B - 4 * A * C) / max;
+        double D = (B * B - 4 * A * C);
+        double norm_D = D / max;
         if (norm_D > epsilon) {
-            double D = norm_D * max; //я бы тут сделала D = B * B - 4AC, потому что сначала деля на макс, а потом умножая, набегает погрешность
             t1 = ((-B + sqrt(D)) / (2 * A));
             t2 = ((-B - sqrt(D)) / (2 * A));
-            if (fabs(t1 - t2) > epsilon) {
-                if (t1 > epsilon && t2 < epsilon) t = t1;
-                else if (t1 < epsilon && t2 > epsilon) t = t2; // это невозможный случай, t2 всегда больше t1. См. строку 41, у нас А всегда больше нуля
-                else if (t1 > epsilon && t2 > epsilon) t = std::min(t1, t2);
-                else if ((t1 < epsilon && t2 > -epsilon) || (t1 > -epsilon && t2 < epsilon)) t = 0; //а нет такого вайба, что этот случай мы рассматриваем в строке 46?
-                else t = 1;
-            }
-            else if (t1 < -epsilon) t = 1; //вроде это тоже лишнее
-            else t = std::min(t1, t2); //это лишнее, мы покрываем это в строках 55-60
-        }
-        if (norm_D < -(epsilon)) {
-            t = 1;
+            if (t1 >= epsilon) t = t1;
+            else if (t2 >= epsilon) t = t2;
+            else if (fabs(t1) < epsilon || fabs(t2) < epsilon) t = 0;
+            else t = 1;
         }
         if (fabs(norm_D) < epsilon) {
             t = -B / (2 * A);
             if (fabs(t) < epsilon) t = 0;
             else if (t < -epsilon) t = 1;
         }
-        return Point(m.x + dx * t, m.y + dy * t);
+        if (norm_D < -epsilon) {
+            t = 1;
+        }
+        return Point(m.x + k_x * t, m.y + k_y * t);
     }
-    Point reflect(Point& m, double& angle) //а нет такого, что в эту функцию хорошо бы и эллипс передавать (и делать ее friend функцией к классу эллипс). У нас в задаче эллипс конечно один, но...
+    Point reflect(Point& m, double& angle)
     {
         Point p = pointInters(m, angle); 
-        if (fabs(m.x - p.x) < epsilon && fabs(m.y - p.y) < epsilon) return m; //может здесь сделать расстояние от точки пересечения меньше эпсилон (квадратный корень из суммы квадратов), а не отдельно эпсилон по вертикали и горизонтали?
-        double xn = -b * b / p.x;
+        if (fabs(pow(m.x - p.x, 2) + pow(m.y - p.y, 2)) < pow(epsilon, 2)) return m;
+        double xn = -b * b / p.x; //что это такое, я не понимаю
         double yn = a * a / p.y;
         double xk = p.x / (a * a);
         double yk = p.y / (b * b);
@@ -86,6 +80,8 @@ public:
         l.y = m.y + 2 * yk * t;
         return l;
     }
+
+    //f - точка, от которой мы ищем расстояние, p и l - точки, через которые проходит прямая
     double distFromPointToLine(Point& f, Point& p, Point& l) {
         double A = p.y - l.y;
         double B = l.x - p.x;
@@ -94,7 +90,7 @@ public:
         if (t > 0) return (std::abs(A * f.x + B * f.y + C) / std::sqrt(A * A + B * B));
         return std::sqrt((p.x - f.x) * (p.x - f.x) + (p.y - f.y) * (p.y - f.y));
     }
-    void solution(Point M, double& angle, double& d1, double& d2, double& x, double& y) {  //тут надо по идее М ссылкой передавать, а то ты его копией передаешь, а потом меняешь
+    void solution(Point M, double& angle, double& d1, double& d2, double& x, double& y) { 
         M = fromNormalToShtrih(M);
         Point p = pointInters(M, angle);
         Point l = reflect(M, angle);
@@ -106,7 +102,7 @@ public:
             d1 = distFromPointToLine(f1, M, l);
             d2 = distFromPointToLine(f2, M, l);
         }
-        p = fromShtrihToNormal(p); // как-то очень загадачно. Мы создаем точку P внутри функции и как-то ее меняем там же. Как нам снаружи от функции узнать что-то про P, если функция возвращает void?
+        p = fromShtrihToNormal(p);
         x = p.x;
         y = p.y;
     }
@@ -121,9 +117,10 @@ int main()
     std::cin >> m;
     Point M(xi, eta);
     Ellipse ellipse(x0, y0, a, b);
-    for (int j = 0; j < m; ++j) {
+    const double pi = acos(-1);
+    for (int i = 0; i < m; ++i) {
         double d1 = 0, d2 = 0, x, y;
-        double angle = 2 * j * acos(-1) / m; //давай где-нибудь константой обозначим пи а то его прям в формулу ставить в виде арккосинуса(-1) как-то не комильфо...
+        double angle = 2 * pi * i / m;
         ellipse.solution(M, angle, d1, d2, x, y);
         std::cout << x << " " << y << " " << d1 << " " << d2 << std::endl;
     }
